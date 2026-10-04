@@ -1,0 +1,34 @@
+name: CERTAINU Burn Check
+
+on:
+  schedule:
+    - cron: '12 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Check burn and post
+        env:
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
+        run: python bot.py
+      - name: Persist burn state
+        run: |
+          if git diff --quiet -- state.json 2>/dev/null && git ls-files --error-unmatch state.json >/dev/null 2>&1; then exit 0; fi
+          git config user.name "certainu-burn-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add state.json
+          git commit -m "Update processed burn state" || exit 0
+          git push
